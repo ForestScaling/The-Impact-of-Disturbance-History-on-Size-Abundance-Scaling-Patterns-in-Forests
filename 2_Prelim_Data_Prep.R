@@ -18,7 +18,7 @@ successfulstates <- c("AL", "AZ", "AR", "CA", "CO", "CT",
 pattern <- paste0("(", paste(successfulstates, collapse = "|"), ")_COND\\.csv$")
 
 # Find filenames matching the pattern in the specified directory
-filenames <- list.files("R:\\Adam Eichenwald\\FIA\\", pattern = pattern, full.names = TRUE)
+filenames <- list.files("FIA\\", pattern = pattern, full.names = TRUE)
 rename<-dplyr::rename
 select<-dplyr::select
 filter<-dplyr::filter
@@ -47,7 +47,7 @@ condition<-condition%>%
 pattern <- paste0("(", paste(successfulstates, collapse = "|"), ")_PLOT\\.csv$")
 
 # Find filenames matching the new pattern in the specified directory
-filenames <- list.files("R:\\Adam Eichenwald\\FIA\\", pattern = pattern, full.names = TRUE)
+filenames <- list.files("FIA\\", pattern = pattern, full.names = TRUE)
 
 # Filter out filenames containing "OZONE", since pattern has "plot_ozone" and "plot", 
 # and we don't want plot_ozone
@@ -70,7 +70,7 @@ plotcond <- inner_join(plot %>%
 
 # Find filenames matching a new pattern for the TREE data tables, 
 # which have all the individual tree information.
-filenames <- list.files("R:\\Adam Eichenwald\\FIA\\", pattern = "_TREE.csv", full.names = TRUE)
+filenames <- list.files("FIA\\", pattern = "_TREE.csv", full.names = TRUE)
 
 # Filter filenames based on desired states
 filtered_filenames <- filenames[grep(paste0("\\", 
