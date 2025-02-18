@@ -18,7 +18,7 @@ sizeabundance3 <- fread("sizeabundance3_hold//sizeabundance3_[descriptive_name_h
 select <- dplyr::select
 
 # Compile the Stan model
-model <- stan_model(file = "density2_simplified.stan")
+model <- stan_model(file = "density1_simplified.stan")
 
 # Detect number of cores available
 cores <- detectCores()
@@ -48,11 +48,10 @@ foreach(i = unique(sizeabundance3$PLT_CN)) %dopar% {
   # Prepare data for Stan model
   N <- length(test$DIA)  # Number of observations
   x <- test$DIA          # Diameter values
-  x_min <- 5             # Minimum diameter value possible, due to how data is collected in the subplot
-  x_max <- max(test$DIA) # Maximum diameter value
+  x_min <- 1             # Minimum diameter value
   
   # Create a list of data for Stan model
-  stan_dat <- list(N = N, x = x, x_min = x_min, x_max = x_max)
+  stan_dat <- list(N = N, x = x, x_min = x_min)
   
   # Fit the Stan model
   fit <- sampling(model, data = stan_dat, iter = 9000, warmup = 6000, chains = 4, cores = 4)
@@ -98,8 +97,7 @@ foreach(i = unique(sizeabundance3$PLT_CN)) %dopar% {
   data <- data %>%
     select(-rhat, -ess_bulk, -ess_tail) %>%  # Remove specific columns
     mutate(PLT_CN = i) %>%                  # Add plot identifier
-    mutate(corrected_slope = ifelse(variable == "alpha_low" |
-                                      variable == "alpha_high", 
+    mutate(corrected_slope = ifelse(variable == "alpha", 
                                     -(mean + 1), NA))  # Calculate slope from alpha,
   # which is just the opposite of (alpha+1)
   

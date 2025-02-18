@@ -10,8 +10,6 @@ bayesiandata<-fread("sizeabundance3_hold//slope_TPA_UNADJ_timesincedist_allvars_
                data.frame()%>%
                mutate(PLT_CN = as.character(PLT_CN)))%>%
   filter(STDAGE <=900 & STDAGE > 0)%>%
-  # mutate(DSTRBCD1 = ifelse(TRTCD1 == 10, 110, DSTRBCD1))%>%
-  # mutate(DSTRBCD1 = ifelse(TRTCD1 == 20, 120, DSTRBCD1))%>%
   filter(DSTRBCD1 %in% c(0,10,22, 46,40, 30,31,80, 52#, 110,120
   ))%>%
   dplyr::mutate(Disturbance_Type = case_when(
@@ -25,8 +23,7 @@ bayesiandata<-fread("sizeabundance3_hold//slope_TPA_UNADJ_timesincedist_allvars_
     DSTRBCD1 %in% c(46, 40) ~ "Animal Damage/Grazing",
     DSTRBCD1 == 52 ~ "Wind",
     DSTRBCD1 %in% c(95, 91) ~ "Landslides/Earthquakes",
-    DSTRBCD1 == 110 ~ "Tree Cutting"#,
-    #DSTRBCD1 == 120 ~ "Slash and Burn"
+    DSTRBCD1 == 110 ~ "Tree Cutting"
   ))%>%
   mutate(Disturbance_Type = relevel(factor(Disturbance_Type),
                                     "No Disturbance"))%>%
@@ -58,29 +55,6 @@ priors <- c(
   prior(normal(0, 2), class = "sigma") # Prior for intercept parameter
 )
 
-# 
-# bayesianmodel1<-brm(data = bayesiandata,
-#                    formula = bf(
-#                      corrected_slope | mi(error) ~ s(Time_Since_Dist) + 
-#                        log10(STDAGE) + log10(MAX_HEIGHT) #+ (1 | FINAL_PLT_ID) 
-#                    ),
-#                    autocor = cor_car(region,
-#                                      formula = ~ 1|region),
-#                    iter=9000, warmup=6000,
-#                    data2= list(region =region),
-#                   prior = priors,
-#                    sample_prior = "yes", cores = 4, 
-#                    chains = 4,  #control = list(adapt_delta = 0.9, max_treedepth = 15),
-#                   threads = threading(15)
-#                   )
-
-# priors <- c(
-#   prior(normal(0, 2), class = "b"),
-#   prior(student_t(3, 0, 1), class = "sd"),
-#   prior(student_t(3, 0, 1), class = "sds"),
-#   prior(student_t(3, 0, 2), class = "Intercept"),
-#   prior(student_t(3, 0, 1), class = "sigma")
-# )
 bayesiandata<-bayesiandata%>%
   inner_join(fread("sizeabundance3_hold//slope_TPA_UNADJ_timesincedist_allvars_ecoregion.csv")%>%
                data.frame()%>%
@@ -89,9 +63,8 @@ bayesiandata<-bayesiandata%>%
                             data.frame()%>%
                             mutate(PLT_CN = as.character(PLT_CN)))%>%
                filter(STDAGE <=900 & STDAGE > 0)%>%
-               # mutate(DSTRBCD1 = ifelse(TRTCD1 == 10, 110, DSTRBCD1))%>%
-               # mutate(DSTRBCD1 = ifelse(TRTCD1 == 20, 120, DSTRBCD1))%>%
-               filter(DSTRBCD1 %in% c(0,10,22, 46,40, 30,31,80, 52#, 110,120
+              
+               filter(DSTRBCD1 %in% c(0,10,22, 46,40, 30,31,80, 52
                ))%>%
                dplyr::mutate(Disturbance_Type = case_when(
                  DSTRBCD1 == 0 ~ "No Disturbance",
@@ -104,8 +77,7 @@ bayesiandata<-bayesiandata%>%
                  DSTRBCD1 %in% c(46, 40) ~ "Animal Damage/Grazing",
                  DSTRBCD1 == 52 ~ "Wind",
                  DSTRBCD1 %in% c(95, 91) ~ "Landslides/Earthquakes",
-                 DSTRBCD1 == 110 ~ "Tree Cutting"#,
-                 #DSTRBCD1 == 120 ~ "Slash and Burn"
+                 DSTRBCD1 == 110 ~ "Tree Cutting"
                ))%>%group_by(FINAL_PLT_ID)%>%
                filter(Time_Since_Dist == 0)%>%mutate(Actual_Dist = Disturbance_Type)%>%
                ungroup()%>%filter(Actual_Dist == "Ground Fire"|Actual_Dist == "Animal Damage/Grazing")%>%

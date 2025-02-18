@@ -23,3 +23,6 @@ This csv file filters plots to those that fit our criteria as specified in our p
 
 # slope_xmin12.7cm_xmax50cm_recentclip.csv
 This csv file holds information about each plot that is useful for the actual modeling process (e.g., Disturbance Type)
+
+# tnc_adjacencymatrix
+This csv file is an adjacency matrix that is used to tell brms which ecoregions are adjacent to which ecoregions. It provides the data necessary to set up the spatial autocorrelation model
