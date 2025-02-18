@@ -1,0 +1,1 @@
+This folder is for code that was considered for earlier versions of the manuscript but have since been removed (e.g., estimating mortality across plots).

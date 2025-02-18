@@ -1,1 +1,0 @@
-This folder contains the 7_Bayesian_Model.R script. However, since it was run on a cluster, we also include the .sh script for others to see how we program the cluster. We also include the Nature Conservancy ecoregion matrix for spatial autocorrelation.
