@@ -1,78 +1,80 @@
-# Load necessary libraries
-library(brms)       # For Bayesian regression modeling
-library(data.table) # For data manipulation
-library(dplyr)      # For data manipulation
-library(future)     # For parallel processing
+library(brms)
+library(data.table)
+library(dplyr)
+library(future)
 
-# Read in the data and filter it
-bayesiandata <- fread("bayesian_piecepareto.csv") %>%
-  data.frame() %>% 
-  filter(STDAGE > 0) %>%                           # Filter out rows where STDAGE is not greater than 0
-  filter(variable == "alpha_low") %>%              # Filter for the piecewise segment for intermediate trees
-  rename(region = ECODE_NAME) %>%                  # Rename 'ECODE_NAME' column to 'region'
-  filter(region != "")                             # Filter out rows where region is an empty string
+bayesiandata<-fread("sizeabundance3_hold//slope_TPA_UNADJ_subplotonly.csv")%>%
+  data.frame()%>%
+  mutate(PLT_CN = as.character(PLT_CN))%>%
+  inner_join(fread("sizeabundance3_hold//xmin12.7cm_xmax50cm_recentclip.csv")%>%
+               data.frame()%>%
+               mutate(PLT_CN = as.character(PLT_CN)))%>%
+  filter(STDAGE <=900 & STDAGE > 0)%>%
+  filter(DSTRBCD1 %in% c(0,10,22, 46,40, 30,31,80, 52#, 110,120
+  ))%>%
+  dplyr::mutate(Disturbance_Type = case_when(
+    DSTRBCD1 == 0 ~ "No Disturbance",
+    DSTRBCD1 == 10 ~ "Insect Damage",
+    DSTRBCD1 == 80 ~ "Human-Caused Damage",
+    DSTRBCD1 == 22 ~ "Disease Damage",
+    DSTRBCD1 == 30 ~ "Fire (Crown and Ground)",
+    DSTRBCD1 == 31 ~ "Ground Fire",
+    DSTRBCD1 == 32 ~ "Crown Fire",
+    DSTRBCD1 %in% c(46, 40) ~ "Animal Damage/Grazing",
+    DSTRBCD1 == 52 ~ "Wind",
+    DSTRBCD1 %in% c(95, 91) ~ "Landslides/Earthquakes",
+    DSTRBCD1 == 110 ~ "Tree Cutting"#,
+    #DSTRBCD1 == 120 ~ "Slash and Burn"
+  ))%>%
+  mutate(Disturbance_Type = relevel(factor(Disturbance_Type),
+                                    "No Disturbance"))%>%
+  filter(STDAGE >0&MAX_HEIGHT>0 &
+           corrected_slope <0)%>%
+  rename(region = ECODE_NAME)%>%
+  filter(region != "")%>%
+  mutate(error = se_mean/sd)
 
-# Set the seed for reproducibility
-set.seed(1)
+bayesiandata<-bayesiandata%>%
+  inner_join(fread("sizeabundance3_hold//FIA_Disturbance_DataClean_TRTCD.csv")%>%
+               mutate(PLT_CN = as.character(PLT_CN)))%>%
+  mutate(remove = ifelse(Disturbance_Type == "No Disturbance" & Treated == "Yes", "Yes","No"))%>%
+  filter(remove == "No")
 
-# Read in the adjacency matrix for regions, from Read et al. 2020
+
 tnc_bin <- read.csv('tnc_adjacencymatrix.csv', row.names = 1)
 tnc_bin <- as.matrix(tnc_bin)
-dimnames(tnc_bin)[[2]] <- rownames(tnc_bin)        # Set the column names of the matrix
+dimnames(tnc_bin)[[2]] <-rownames(tnc_bin)
 
-# Get unique regions from bayesiandata
-groups_in_data <- unique(bayesiandata$region)
+# Get unique groups from bayesiandata
+groups_in_data <- unique(bayesiandata$region)  # Replace group_column_name with the actual column name
 
-# Get regions from tnc_bin matrix
+# Find groups in tnc_bin that are present in bayesiandata
 groups_in_tnc_bin <- rownames(tnc_bin)
 
-# Find common regions between bayesiandata and tnc_bin
 common_groups <- intersect(groups_in_tnc_bin, groups_in_data)
-
-# Extract rows and columns corresponding to common regions in tnc_bin
+# Extract rows and columns corresponding to common groups in tnc_bin
 tnc_bin_common <- tnc_bin[common_groups, common_groups]
-dimnames(tnc_bin_common)[[2]] <- NULL              # Remove column names
 
-# Define the region adjacency matrix for the CAR model
-region <- tnc_bin_common
+dimnames(tnc_bin_common)[[2]] <- NULL
 
-# Create a list to store data for multiple Bayesian models
-multipledata <- list()
-
-# Loop through the data and filter so each model has its own data frame in list form
-for(i in 1:10){
-  multipledata[[i]] <- bayesiandata %>%
-    filter(multbayesnumber == i) %>%
-    mutate(Disturbance = as.factor(Disturbance))   # Convert 'Disturbance' to a factor
-}
-
-# Set up parallel processing with 10 workers
-plan(multisession, workers = 10)
-
-# Define priors for the Bayesian model
+region<-tnc_bin_common
 priors <- c(
-  prior(normal(0, 5), class = "b"),       # Prior for slope parameter
-  prior(normal(0, 2), class = "sigma")    # Prior for intercept parameter
+  prior(normal(0, 5), class = "b"),        # Prior for slope parameter
+  prior(normal(0, 2), class = "sigma") # Prior for intercept parameter
 )
 
-# Fit Bayesian models using the brm_multiple function
-bayesianmodel <- brm_multiple(
-  data = multipledata,                   # List of datasets for multiple imputation
-  formula = corrected_slope ~ log10(STDAGE) + 
-    Prop_Hardwood_to_Softwood + Disturbance +
-    poly(MORT_PERC, 2) + log10(Max_Height),  # Model formula
-  autocor = cor_car(region, formula = ~ 1 | region),  # Define CAR model for spatial autocorrelation
-  iter = 9000, warmup = 6000,            # Number of iterations and warm-up period
-  data2 = list(
-    list(region = region), list(region = region), list(region = region),
-    list(region = region), list(region = region), list(region = region),
-    list(region = region), list(region = region), list(region = region),
-    list(region = region)
-  ),                                    # List of region adjacency matrices for each imputed dataset
-  prior = priors,                        # Set priors for the model
-  sample_prior = "yes",                  # Include prior samples in the output
-  chains = 4                             # Number of Markov chains
-)
 
-# Save the fitted Bayesian model
-save(bayesianmodel, file = paste0("bayesian_piecepareto.RData"))
+bayesianmodel<-brm(data = bayesiandata,
+                   formula = bf(
+                     corrected_slope | mi(error) ~ 
+                       log10(STDAGE)  +  log10(MAX_HEIGHT) + Disturbance_Type
+                     
+                   ),
+                   autocor = cor_car(region,
+                                     formula = ~ 1|region),
+                   iter=9000, warmup=6000,
+                   data2= list(region =region),
+                   prior = priors,
+                   sample_prior = "yes", cores = 4, 
+                   chains = 4, threads = threading(15))
+save(bayesianmodel, file = paste0("slope_TPA_UNADJ_subplotonly.RData"))
